@@ -1,0 +1,314 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Insurance Document Intelligence</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --panel-light: #273449;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --success: #22c55e;
+    --error: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+  header { padding: 24px 32px; border-bottom: 1px solid var(--border); }
+  header h1 { margin: 0 0 4px; font-size: 20px; }
+  header p { margin: 0; color: var(--muted); font-size: 14px; }
+  .settings { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+  .settings input {
+    background: var(--panel-light); border: 1px solid var(--border); color: var(--text);
+    padding: 6px 10px; border-radius: 6px; font-size: 13px; width: 260px;
+  }
+  .layout { display: grid; grid-template-columns: 340px 1fr; gap: 0; height: calc(100vh - 96px); }
+  .sidebar { border-right: 1px solid var(--border); padding: 20px; overflow-y: auto; }
+  .sidebar h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 12px; }
+  .upload-box {
+    border: 1.5px dashed var(--border); border-radius: 10px; padding: 20px;
+    text-align: center; cursor: pointer; transition: border-color .15s;
+  }
+  .upload-box:hover, .upload-box.dragover { border-color: var(--accent); }
+  .upload-box input { display: none; }
+  .upload-box p { margin: 8px 0 0; font-size: 13px; color: var(--muted); }
+  button {
+    background: var(--accent); color: white; border: none; padding: 10px 16px;
+    border-radius: 8px; font-size: 14px; cursor: pointer; transition: background .15s;
+  }
+  button:hover { background: var(--accent-hover); }
+  button:disabled { background: #475569; cursor: not-allowed; }
+  .doc-list { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .doc-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 12px; font-size: 13px; cursor: pointer;
+  }
+  .doc-card.selected { border-color: var(--accent); background: #1e2b45; }
+  .doc-card .fname { font-weight: 600; margin-bottom: 2px; word-break: break-all; }
+  .doc-card .dtype { color: var(--accent); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  .doc-card .del { float: right; color: var(--error); font-size: 11px; }
+  .scope-note { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .main { display: flex; flex-direction: column; padding: 20px 32px; overflow-y: auto; }
+  .chat { flex: 1; display: flex; flex-direction: column; gap: 16px; margin-bottom: 16px; }
+  .msg { max-width: 720px; }
+  .msg.user { align-self: flex-end; }
+  .msg .bubble { padding: 12px 16px; border-radius: 10px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+  .msg.user .bubble { background: var(--accent); color: white; }
+  .msg.bot .bubble { background: var(--panel); border: 1px solid var(--border); }
+  .sources { margin-top: 8px; font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; }
+  .source-chip { background: var(--panel-light); border: 1px solid var(--border); padding: 2px 8px; border-radius: 999px; }
+  .tool-calls {
+    margin-top: 8px; font-size: 12px; color: var(--muted); background: var(--panel-light);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px;
+  }
+  .tool-calls b { color: var(--success); }
+  .input-row { display: flex; gap: 10px; }
+  .input-row input[type=text] {
+    flex: 1; background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    padding: 12px 14px; border-radius: 8px; font-size: 14px;
+  }
+  .input-row input[type=text]:focus { outline: none; border-color: var(--accent); }
+  .status { font-size: 12px; margin-top: 6px; min-height: 16px; }
+  .status.error { color: var(--error); }
+  .status.ok { color: var(--success); }
+  .empty-state { color: var(--muted); font-size: 14px; margin-top: 40px; text-align: center; }
+  .spinner {
+    width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,.4);
+    border-top-color: white; display: inline-block; animation: spin .7s linear infinite; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Insurance Document Intelligence</h1>
+  <p>Multi-agent RAG system - upload a policy or claim document, then ask questions.</p>
+  <div class="settings">
+    <span id="apiBaseDisplay" style="font-size:12px; color:var(--muted);">Connected to localhost:8000</span>
+    <a href="#" id="editApiLink" style="font-size:12px; color:var(--accent); margin-left:8px; text-decoration:none;">change</a>
+    <input id="apiBase" type="text" value="http://localhost:8000" style="display:none;" />
+  </div>
+</header>
+
+<div class="layout">
+  <div class="sidebar">
+    <h2>Upload Document</h2>
+    <label class="upload-box" id="uploadBox">
+      <input type="file" id="fileInput" accept=".pdf,.txt,.md" />
+      <div>Upload</div>
+      <p>Click or drag a PDF / TXT file here</p>
+    </label>
+    <div class="status" id="uploadStatus"></div>
+
+    <h2 style="margin-top:24px;">Documents</h2>
+    <div class="doc-list" id="docList"></div>
+    <div class="scope-note">Select a document to scope Q&amp;A to it. Deselect to search across all uploaded documents.</div>
+  </div>
+
+  <div class="main">
+    <div class="chat" id="chat">
+      <div class="empty-state">Upload a document, then ask a question below - e.g. "What is the coverage limit for water damage?"</div>
+    </div>
+    <div>
+      <div class="input-row">
+        <input type="text" id="questionInput" placeholder="Ask about coverage, exclusions, premiums, claims..." />
+        <button id="askBtn">Ask</button>
+      </div>
+      <div class="status" id="qaStatus"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+let documents = {};
+let selectedDocId = null;
+
+function apiBase() {
+  return document.getElementById('apiBase').value.replace(/\/$/, '');
+}
+
+document.getElementById('editApiLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  const input = document.getElementById('apiBase');
+  const display = document.getElementById('apiBaseDisplay');
+  const link = document.getElementById('editApiLink');
+  if (input.style.display === 'none') {
+    input.style.display = 'inline-block';
+    display.style.display = 'none';
+    link.textContent = 'save';
+    input.focus();
+  } else {
+    input.style.display = 'none';
+    display.style.display = 'inline';
+    display.textContent = `Connected to ${apiBase().replace(/^https?:\/\//, '')}`;
+    link.textContent = 'change';
+    refreshDocuments();
+  }
+});
+
+async function refreshDocuments() {
+  try {
+    const res = await fetch(`${apiBase()}/documents`);
+    if (!res.ok) throw new Error('Failed to fetch documents');
+    documents = await res.json();
+    renderDocList();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function renderDocList() {
+  const list = document.getElementById('docList');
+  const ids = Object.keys(documents);
+  if (ids.length === 0) {
+    list.innerHTML = '<div style="color:var(--muted); font-size:13px;">No documents uploaded yet.</div>';
+    return;
+  }
+  list.innerHTML = ids.map(id => {
+    const d = documents[id];
+    const sel = id === selectedDocId ? 'selected' : '';
+    return `
+      <div class="doc-card ${sel}" data-id="${id}">
+        <span class="del" data-del="${id}">x</span>
+        <div class="fname">${d.filename || 'Untitled'}</div>
+        <div class="dtype">${d.doc_type || 'unknown'}</div>
+      </div>`;
+  }).join('');
+
+  list.querySelectorAll('.doc-card').forEach(card => {
+    card.addEventListener('click', (e) => {
+      if (e.target.dataset.del) return;
+      const id = card.dataset.id;
+      selectedDocId = selectedDocId === id ? null : id;
+      renderDocList();
+    });
+  });
+  list.querySelectorAll('[data-del]').forEach(el => {
+    el.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = el.dataset.del;
+      await fetch(`${apiBase()}/documents/${id}`, { method: 'DELETE' });
+      if (selectedDocId === id) selectedDocId = null;
+      refreshDocuments();
+    });
+  });
+}
+
+const uploadBox = document.getElementById('uploadBox');
+const fileInput = document.getElementById('fileInput');
+const uploadStatus = document.getElementById('uploadStatus');
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files.length) uploadFile(fileInput.files[0]);
+});
+uploadBox.addEventListener('dragover', (e) => { e.preventDefault(); uploadBox.classList.add('dragover'); });
+uploadBox.addEventListener('dragleave', () => uploadBox.classList.remove('dragover'));
+uploadBox.addEventListener('drop', (e) => {
+  e.preventDefault();
+  uploadBox.classList.remove('dragover');
+  if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]);
+});
+
+async function uploadFile(file) {
+  uploadStatus.className = 'status';
+  uploadStatus.innerHTML = '<span class="spinner"></span>Uploading & analyzing...';
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await fetch(`${apiBase()}/documents/upload`, { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Upload failed');
+    uploadStatus.className = 'status ok';
+    uploadStatus.textContent = `Ingested "${data.filename}" as ${data.doc_type} (${data.chunk_count} chunks).`;
+    selectedDocId = data.doc_id;
+    await refreshDocuments();
+  } catch (e) {
+    uploadStatus.className = 'status error';
+    uploadStatus.textContent = e.message;
+  } finally {
+    fileInput.value = '';
+  }
+}
+
+const chat = document.getElementById('chat');
+const questionInput = document.getElementById('questionInput');
+const askBtn = document.getElementById('askBtn');
+const qaStatus = document.getElementById('qaStatus');
+
+function appendMessage(role, html) {
+  const emptyState = chat.querySelector('.empty-state');
+  if (emptyState) emptyState.remove();
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = html;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function askQuestion() {
+  const question = questionInput.value.trim();
+  if (!question) return;
+  appendMessage('user', `<div class="bubble">${escapeHtml(question)}</div>`);
+  questionInput.value = '';
+  askBtn.disabled = true;
+  qaStatus.className = 'status';
+  qaStatus.innerHTML = '<span class="spinner"></span>Running multi-agent pipeline...';
+
+  try {
+    const res = await fetch(`${apiBase()}/qa`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, doc_id: selectedDocId || null })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Request failed');
+
+    let html = `<div class="bubble">${escapeHtml(data.answer || 'No answer returned.')}</div>`;
+
+    if (data.sources && data.sources.length) {
+      html += `<div class="sources">` + data.sources.map(s =>
+        `<span class="source-chip">${escapeHtml(s.filename || 'source')} - chunk ${s.chunk_index} - score ${s.score}</span>`
+      ).join('') + `</div>`;
+    }
+
+    if (data.tool_calls && data.tool_calls.length) {
+      html += `<div class="tool-calls"><b>Tools used:</b> ` +
+        data.tool_calls.map(t => `${escapeHtml(t.tool)}(${escapeHtml(JSON.stringify(t.args))})`).join(', ') +
+        `</div>`;
+    }
+
+    appendMessage('bot', html);
+    qaStatus.textContent = '';
+  } catch (e) {
+    qaStatus.className = 'status error';
+    qaStatus.textContent = e.message;
+  } finally {
+    askBtn.disabled = false;
+  }
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+askBtn.addEventListener('click', askQuestion);
+questionInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') askQuestion(); });
+
+refreshDocuments();
+</script>
+</body>
+</html>

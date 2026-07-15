@@ -1,0 +1,13 @@
+version: "3.9"
+
+services:
+  insurance-doc-ai:
+    build: .
+    container_name: Agentic AI Office Document Intelligence System
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
