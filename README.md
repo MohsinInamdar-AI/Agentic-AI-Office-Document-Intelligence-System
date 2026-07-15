@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Agentic AI Office Document Intelligence System (Insurance)
 
 Enterprise-grade multi-agent platform for insurance document analysis. Built with
@@ -106,3 +107,7 @@ curl -X POST http://localhost:8000/qa \
 - For very large corpora, consider hybrid search (BM25 + embeddings) in
   `core/vectorstore.py`.
 - Add streaming responses (`langgraph` supports `.stream()`) for a chat-style UI.
+=======
+# Agentic-AI-Office-Document-Intelligence-System
+Enterprise Agentic AI platform for insurance document analysis using multi-agent workflows (LangGraph, LangChain, FastAPI, ChromaDB)
+>>>>>>> 03e70193a2e24be7de41e0e55b621f34a6747fd7
